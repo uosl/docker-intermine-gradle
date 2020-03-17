@@ -2,12 +2,27 @@
 
 set -e
 
-mkdir /home/intermine/.intermine
-
 cd /home/intermine/intermine
 
 # Empty log
 echo "" > /home/intermine/intermine/build.progress
+
+echo "Starting mine build"
+echo $MINE_REPO_URL
+# Check if mine exists and is not empty
+if [ -d ${MINE_NAME:-biotestmine} ] && [ ! -z "$(ls -A ${MINE_NAME:-biotestmine})" ]; then
+    echo "$(date +%Y/%m/%d-%H:%M) Deploy existing ${MINE_NAME:-biotestmine}" #>> /home/intermine/intermine/build.progress
+    cd ${MINE_NAME:-biotestmine}
+    ./gradlew clean
+    ./gradlew cargoDeployRemote
+    exit 0
+else
+    # echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}" #>> /home/intermine/intermine/build.progress
+    echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}"
+    git clone ${MINE_REPO_URL:-https://github.com/intermine/biotestmine} ${MINE_NAME:-biotestmine}
+    echo "$(date +%Y/%m/%d-%H:%M) Update keyword_search.properties to use http://solr" #>> /home/intermine/intermine/build.progress
+    sed -i 's/localhost/'${SOLR_HOST:-solr}'/g' ./${MINE_NAME:-biotestmine}/dbmodel/resources/keyword_search.properties
+fi
 
 # Build InterMine if any of the envvars are specified.
 if [ ! -z ${IM_REPO_URL} ] || [ ! -z ${IM_REPO_BRANCH} ]; then
@@ -29,23 +44,6 @@ if [ ! -z ${IM_REPO_URL} ] || [ ! -z ${IM_REPO_BRANCH} ]; then
     BIO_VERSION=$(sed -n "s/^\s*version.*\+'\(.*\)'\s*$/\1/p" bio/build.gradle)
 
     cd /home/intermine/intermine
-fi
-
-
-echo "Starting mine build"
-echo $MINE_REPO_URL
-# Check if mine exists and is not empty
-if [ -d ${MINE_NAME:-biotestmine} ] && [ ! -z "$(ls -A ${MINE_NAME:-biotestmine})" ]; then
-    echo "$(date +%Y/%m/%d-%H:%M) Update ${MINE_NAME:-biotestmine} to newest version" #>> /home/intermine/intermine/build.progress
-    cd ${MINE_NAME:-biotestmine}
-    # git pull
-    cd /home/intermine/intermine
-else
-    # echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}" #>> /home/intermine/intermine/build.progress
-    echo "$(date +%Y/%m/%d-%H:%M) Clone ${MINE_NAME:-biotestmine}"
-    git clone ${MINE_REPO_URL:-https://github.com/intermine/biotestmine} ${MINE_NAME:-biotestmine}
-    echo "$(date +%Y/%m/%d-%H:%M) Update keyword_search.properties to use http://solr" #>> /home/intermine/intermine/build.progress
-    sed -i 's/localhost/'${SOLR_HOST:-solr}'/g' ./${MINE_NAME:-biotestmine}/dbmodel/resources/keyword_search.properties
 fi
 
 # If InterMine or Bio versions have been set (likely because of a custom
